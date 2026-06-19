@@ -1,0 +1,59 @@
+using System;
+using System.IO;
+using System.IO.Pipes;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace NamedPipeClient
+{
+    class Program
+    {
+        static async Task Main(string[] args)
+        {
+            Console.WriteLine("=== Named Pipe Client ===\n");
+            try
+            {
+                using (var client = new NamedPipeClientStream(".", "MyTestPipe", PipeDirection.InOut))
+                {
+                    Console.WriteLine("Подключение к серверу...");
+                    await client.ConnectAsync();
+                    Console.WriteLine("Подключено!\n");
+            
+                    for (int i = 1; i <= 5; i++)
+                    {
+                        string message = $"Сообщение #{i} от клиента";
+                        await SendMessage(client, message);
+                        
+                        string response = await ReceiveMessage(client);
+                        Console.WriteLine($"Ответ сервера: {response}\n");
+                        
+                        await Task.Delay(500); // Пауза между сообщениями
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ошибка: {ex.Message}");
+                Console.WriteLine("Убедитесь, что сервер запущен!");
+            }
+            
+            Console.WriteLine("Нажмите любую клавишу для выхода...");
+            Console.ReadKey();
+        }
+        
+        static async Task SendMessage(NamedPipeClientStream client, string message)
+        {
+            byte[] data = Encoding.UTF8.GetBytes(message);
+            await client.WriteAsync(data, 0, data.Length);
+            await client.FlushAsync();
+            Console.WriteLine($"Отправлено: {message}");
+        }
+        
+        static async Task<string> ReceiveMessage(NamedPipeClientStream client)
+        {
+            byte[] buffer = new byte[1024];
+            int bytesRead = await client.ReadAsync(buffer, 0, buffer.Length);
+            return Encoding.UTF8.GetString(buffer, 0, bytesRead);
+        }
+    }
+}
